@@ -9,27 +9,32 @@ def inject_keyboard_shortcut():
         const doc = window.parent.document;
 
         doc.addEventListener('keydown', function(e) {
-            // 1. Keyboard Shortcut (Ctrl+Enter) to Translate
-            if ((e.ctrlKey || e.metaKey) && e.keyCode === 13) {
+            // 1. Keyboard Shortcut (Ctrl+Enter or Cmd+Enter) to Translate
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
                 const buttons = doc.querySelectorAll('button');
                 for (const btn of buttons) {
-                    if (btn.innerText.includes("Translate (Ctrl+Enter)")) {
+                    // Check for the specific button text
+                    if (btn.innerText.includes("Translate")) {
                         btn.click();
+                        e.preventDefault();
                         break;
                     }
                 }
             }
 
             // 2. Keyboard Shortcut ('/') to Focus Input
-            // We check if the user is NOT already typing in a field before focusing
-            if (e.key === '/' && doc.activeElement.tagName !== 'TEXTAREA' && doc.activeElement.tagName !== 'INPUT') {
-                e.preventDefault(); // Prevent the '/' character from being entered
+            // Only trigger if we aren't already in an input/textarea
+            if (e.key === '/' && 
+                doc.activeElement.tagName !== 'TEXTAREA' && 
+                doc.activeElement.tagName !== 'INPUT') {
+                
+                e.preventDefault(); 
                 const textArea = doc.querySelector('textarea');
                 if (textArea) {
                     textArea.focus();
                 }
             }
-        });
+        }, true); // Using 'true' for capture phase to catch events early
         </script>
         """, height=0, width=0
     )
