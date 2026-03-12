@@ -2,6 +2,7 @@ import streamlit as st
 from litellm import completion
 import json
 import os
+import streamlit.components.v1 as components
 
 # --- APP CONFIGURATION ---
 api_key = os.environ.get("GROQ_API_KEY")
@@ -46,13 +47,15 @@ st.set_page_config(page_title="Translator Builder", layout="centered")
 
 st.title("Portuguese → English Builder")
 
-# Initialize session state
 if "translation_data" not in st.session_state:
     st.session_state.translation_data = None
 
 source_text = st.text_area("Source:", placeholder="Cole seu texto...", height=150, label_visibility="collapsed")
 
-if st.button("Translate", use_container_width=True):
+# We give the button a unique label/key so the JavaScript can find it
+translate_clicked = st.button("Translate (Ctrl+Enter)", use_container_width=True, key="translate_btn")
+
+if translate_clicked:
     if source_text.strip():
         with st.spinner("Processing..."):
             st.session_state.translation_data = get_segmented_translations(source_text)
@@ -62,41 +65,51 @@ if st.button("Translate", use_container_width=True):
 # --- DISPLAY & INDIVIDUAL CHECKBOXES ---
 if st.session_state.translation_data and "segments" in st.session_state.translation_data:
     st.divider()
-    
     selected_versions = []
 
     for i, item in enumerate(st.session_state.translation_data["segments"]):
-        # Create three checkboxes for the three versions
-        # We use a unique key for each checkbox based on segment index and version number
-        
         v1_check = st.checkbox(item['v1'], key=f"seg_{i}_v1")
-        if v1_check:
-            selected_versions.append(item['v1'])
+        if v1_check: selected_versions.append(item['v1'])
             
         v2_check = st.checkbox(item['v2'], key=f"seg_{i}_v2")
-        if v2_check:
-            selected_versions.append(item['v2'])
+        if v2_check: selected_versions.append(item['v2'])
             
         v3_check = st.checkbox(item['v3'], key=f"seg_{i}_v3")
-        if v3_check:
-            selected_versions.append(item['v3'])
+        if v3_check: selected_versions.append(item['v3'])
         
-        st.write("") # Small spacing between segments
+        st.write("") 
 
-    # --- FINAL COMPILATION AREA ---
     if selected_versions:
         st.divider()
         st.subheader("Selected Text")
-        
-        # Join all selected translations
         final_string = " ".join(selected_versions)
-        
-        # Display in a code block for the one-click "Copy" icon
         st.code(final_string, language=None)
         
-        # Optional: Clear button to reset checkboxes
         if st.button("Reset All Selections"):
             for key in st.session_state.keys():
                 if key.startswith("seg_"):
                     st.session_state[key] = False
             st.rerun()
+
+# --- KEYBOARD SHORTCUT (Ctrl + Enter) ---
+components.html(
+    """
+<script>
+const doc = window.parent.document;
+doc.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.keyCode === 13) {
+        // Find the button by its text content and click it
+        const buttons = doc.querySelectorAll('button');
+        for (const btn of buttons) {
+            if (btn.innerText.includes("Translate (Ctrl+Enter)")) {
+                btn.click();
+                break;
+            }
+        }
+    }
+});
+</script>
+""",
+    height=0,
+    width=0,
+)
