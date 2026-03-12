@@ -3,6 +3,7 @@ from litellm import completion
 import json
 import os
 import streamlit.components.v1 as components
+import time
 
 # --- APP CONFIGURATION ---
 api_key = os.environ.get("GROQ_API_KEY")
@@ -42,63 +43,75 @@ def get_segmented_translations(full_text):
     except Exception as e:
         return {"error": str(e)}
 
-# --- STREAMLIT UI SETUP ---
-st.set_page_config(page_title="Translator Builder", layout="centered")
+# --- CALLBACK ---
+def handle_translation():
+    if st.session_state.source_text_key.strip():
+        st.session_state.text_to_process = st.session_state.source_text_key
+        st.session_state.source_text_key = ""
+        st.session_state.translation_data = None
+        # Increment the 'run_id' to force all checkbox keys to change
+        st.session_state.run_id += 1 
+    else:
+        st.session_state.text_to_process = None
 
-st.title("Portuguese → English Builder")
+# --- UI SETUP ---
+st.set_page_config(page_title="Translator", layout="centered")
 
+# Initialize essential states
 if "translation_data" not in st.session_state:
     st.session_state.translation_data = None
+if "text_to_process" not in st.session_state:
+    st.session_state.text_to_process = None
+if "run_id" not in st.session_state:
+    st.session_state.run_id = 0
 
-source_text = st.text_area("Source:", placeholder="Cole seu texto...", height=150, label_visibility="collapsed")
+st.title("Portuguese → English")
 
-# We give the button a unique label/key so the JavaScript can find it
-translate_clicked = st.button("Translate (Ctrl+Enter)", use_container_width=True, key="translate_btn")
+source_text = st.text_area(
+    "Source:", 
+    placeholder="Digite e aperte Ctrl+Enter...", 
+    height=150, 
+    label_visibility="collapsed",
+    key="source_text_key" 
+)
 
-if translate_clicked:
-    if source_text.strip():
+if st.button("Translate (Ctrl+Enter)", use_container_width=True, on_click=handle_translation, key="translate_btn"):
+    if st.session_state.text_to_process:
         with st.spinner("Processing..."):
-            st.session_state.translation_data = get_segmented_translations(source_text)
-    else:
-        st.warning("Por favor, insira um texto.")
+            st.session_state.translation_data = get_segmented_translations(st.session_state.text_to_process)
 
-# --- DISPLAY & INDIVIDUAL CHECKBOXES ---
+# --- DISPLAY & SELECTION ---
 if st.session_state.translation_data and "segments" in st.session_state.translation_data:
     st.divider()
     selected_versions = []
 
+    # Current run_id makes these keys unique to this specific translation batch
+    rid = st.session_state.run_id
+
     for i, item in enumerate(st.session_state.translation_data["segments"]):
-        v1_check = st.checkbox(item['v1'], key=f"seg_{i}_v1")
+        # The key now includes the run_id, forcing a reset every time rid changes
+        v1_check = st.checkbox(item['v1'], key=f"run_{rid}_seg_{i}_v1")
         if v1_check: selected_versions.append(item['v1'])
             
-        v2_check = st.checkbox(item['v2'], key=f"seg_{i}_v2")
+        v2_check = st.checkbox(item['v2'], key=f"run_{rid}_seg_{i}_v2")
         if v2_check: selected_versions.append(item['v2'])
             
-        v3_check = st.checkbox(item['v3'], key=f"seg_{i}_v3")
+        v3_check = st.checkbox(item['v3'], key=f"run_{rid}_seg_{i}_v3")
         if v3_check: selected_versions.append(item['v3'])
         
         st.write("") 
 
     if selected_versions:
         st.divider()
-        st.subheader("Selected Text")
-        final_string = " ".join(selected_versions)
-        st.code(final_string, language=None)
-        
-        if st.button("Reset All Selections"):
-            for key in st.session_state.keys():
-                if key.startswith("seg_"):
-                    st.session_state[key] = False
-            st.rerun()
+        st.code(" ".join(selected_versions), language=None)
 
-# --- KEYBOARD SHORTCUT (Ctrl + Enter) ---
+# --- KEYBOARD SHORTCUT ---
 components.html(
     """
 <script>
 const doc = window.parent.document;
 doc.addEventListener('keydown', function(e) {
     if ((e.ctrlKey || e.metaKey) && e.keyCode === 13) {
-        // Find the button by its text content and click it
         const buttons = doc.querySelectorAll('button');
         for (const btn of buttons) {
             if (btn.innerText.includes("Translate (Ctrl+Enter)")) {
@@ -109,7 +122,4 @@ doc.addEventListener('keydown', function(e) {
     }
 });
 </script>
-""",
-    height=0,
-    width=0,
-)
+""", height=0, width=0)
