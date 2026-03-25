@@ -1,8 +1,8 @@
 import os
 
 # API Configuration
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-MODEL_NAME = "groq/openai/gpt-oss-120b"
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+MODEL_NAME = "gemini/gemini-2.5-flash-lite"
 
 # AI Personality and Instructions
 SYSTEM_PROMPT = """
